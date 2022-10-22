@@ -32,6 +32,7 @@ from litex_boards.platforms import sqrl_acorn
 from litex.soc.interconnect.csr import *
 from litex.soc.integration.soc_core import *
 from litex.soc.integration.builder import *
+from litex.soc.interconnect import stream
 
 from litex.soc.cores.clock import *
 from litex.soc.cores.led import LedChaser
@@ -166,6 +167,31 @@ class BaseSoC(SoCCore):
             self.submodules.leds = LedChaser(
                 pads         = platform.request_all("user_led"),
                 sys_clk_freq = sys_clk_freq)
+
+        # ComputeEngine ----------------------------------------------------------------------------
+
+        class ComputeEngine(stream.PipelinedActor):
+            """Simple Compute Engine: +2 on data in 2 cycles."""
+            def __init__(self):
+                self.sink   = sink   = stream.Endpoint([("data", 128)])
+                self.source = source = stream.Endpoint([("data", 128)])
+                stream.PipelinedActor.__init__(self, 2)
+
+                # # #
+
+                stage1_data = Signal(128)
+                stage2_data = Signal(128)
+                self.sync += If(self.pipe_ce, stage1_data.eq(  sink.data + 1))
+                self.sync += If(self.pipe_ce, stage2_data.eq(stage1_data + 1))
+                self.comb += source.data.eq(stage2_data)
+
+
+        self.submodules.compute_engine = ComputeEngine()
+        self.submodules += stream.Pipeline(
+            self.pcie_dma0.source,
+            self.compute_engine,
+            self.pcie_dma0.sink
+        )
 
 # Build --------------------------------------------------------------------------------------------
 
