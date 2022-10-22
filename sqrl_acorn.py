@@ -186,11 +186,17 @@ class BaseSoC(SoCCore):
                 self.comb += source.data.eq(stage2_data)
 
 
-        self.submodules.compute_engine = ComputeEngine()
+        self.submodules.compute_engine0 = ComputeEngine()
+        self.submodules.compute_engine1 = ComputeEngine()
         self.submodules += stream.Pipeline(
+            # Host -> DMA.
             self.pcie_dma0.source,
-            self.compute_engine,
+            # DMA -> Compute Engines.
+            self.compute_engine0,
+            self.compute_engine1,
+            # Compute Engines -> DMA.
             self.pcie_dma0.sink
+            # DMA -> Host.
         )
 
 # Build --------------------------------------------------------------------------------------------
